@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-github-deploy
+  namespace: cncf-tn
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: demo
+      ci: github-actions
+  template:
+    metadata:
+      labels:
+        app: demo
+        ci: github-actions
+    spec:
+      containers:
+      - name: app
+        image: romdhanisamir/demo_app:newTag
+        ports:
+        - containerPort: 80
+        imagePullPolicy: Always

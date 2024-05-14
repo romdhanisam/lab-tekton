@@ -1,0 +1,84 @@
+name: CI⚡CD Workflow - Release Project
+
+on:
+  push:
+    branches:
+      - to-remove
+
+defaults:
+  run:
+    working-directory: angular-app
+jobs:
+  ci:
+    name: CI 📦 🎯 🐳
+    runs-on: ubuntu-latest
+    outputs:
+      my_published_docker_image: ${{ steps.docker_build.outputs.docker_image }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: 🏗 Build Application
+        run: npm run build
+
+      - name: 🧪 Run Unit Tests
+        run: npm run test:ci
+
+      - name: 🧪 Run Integration Tests
+        run: npm run ci:cy-run
+
+      - name: 🎯 Run quality reporter
+        run: echo "Making actions to evaluate code quality"
+
+      - shell: bash
+        name: Set ci runner characteristic Before dockerize
+        run: chmod +x -R ./scripts/build-environments.sh && ./scripts/build-environments.sh
+      - name: Get Short GitHub SHA
+        id: sha
+        run: echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+      - name: 🐳 docker Build and Push latest
+        id: docker_build
+        uses: romdhanisam/lab-github-actions@v1-docker-publish.next.2
+        with:
+          registry_username: ${{ secrets.CI_REGISTRY_USER }}
+          registry_password: ${{ secrets.DOCKER_REGISTRY_PASSWORD }}
+          working_directory: angular-app
+          docker_image_name: demo_app
+          github_run_attempt: ${{ github.run_number }}-${{ steps.sha.outputs.sha_short }}
+
+  cd:
+    needs: ci
+    name: CD 🚀 (github act way)
+    runs-on: ubuntu-latest
+    env:
+      AWS_PROFILE: ${{ secrets.AWS_PROFILE }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      EKS_CLUSTER_NAME: cncf-tunisia-demo-cluster
+      K8S_NAMESPACE: cncf-tn
+      
+    steps:
+      - uses: actions/checkout@v4
+        
+      - name: Configure kube
+        run: |
+          aws configure set AWS_ACCESS_KEY_ID ${{ secrets.AWS_ACCESS_KEY_ID }} --profile ${{ env.AWS_PROFILE }}
+          aws configure set AWS_SECRET_ACCESS_KEY ${{ secrets.AWS_SECRET_ACCESS_KEY }} --profile ${{ env.AWS_PROFILE }}
+          aws configure set AWS_DEFAULT_REGION ${{ env.AWS_REGION }}
+          aws eks update-kubeconfig --name ${{ env.EKS_CLUSTER_NAME }} --region ${{ secrets.AWS_REGION }} --profile ${{ secrets.AWS_PROFILE }}
+
+      - name: 🚀☸ Deployment
+        run: |
+          sed -i'.bak' -e 's|/demo_app:*.*.*-*.*$|/${{needs.ci.outputs.my_published_docker_image}}|g' deploy/app.yaml
+          cat deploy/app.yaml
+          kubectl apply -n ${{ env.K8S_NAMESPACE }} -f deploy/app.yaml
+
+      - name: get all in namespace (jsut for demo)
+        run: kubectl -n ${{ env.K8S_NAMESPACE }} get all,ingress

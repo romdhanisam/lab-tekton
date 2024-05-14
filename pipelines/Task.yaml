@@ -1,0 +1,51 @@
+apiVersion: tekton.dev/v1alpha1
+kind: Task
+metadata:
+  name: nodejs-ci
+spec:
+  inputs: 
+    resources:
+      - name: demo-repo
+        type: git
+  steps:
+    - name: npm-install
+      image: node
+      command:
+        - /bin/sh
+        - -c
+      args:
+        - npm install
+      workingDir: /workspace/demo-repo/angular-app
+    - name: npm-audit
+      image: node
+      command:
+        - /bin/sh
+        - -c
+      args:
+        - npm audit
+      workingDir: /workspace/demo-repo/angular-app
+    - name: lint
+      image: node
+      command:
+        - /bin/sh
+        - -c
+      args:
+        - npm run lint
+      workingDir: /workspace/demo-repo/angular-app
+    - name: test
+      image: node
+      command:
+        - /bin/sh
+        - -c
+      args:
+        - npm run test
+      workingDir: /workspace/demo-repo/angular-app
+    - name: build
+      image: node
+      command:
+        - /bin/sh
+        - -c
+      args:
+        - npm run build
+      workingDir: /workspace/demo-repo/angular-app
+        

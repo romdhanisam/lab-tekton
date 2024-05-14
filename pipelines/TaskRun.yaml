@@ -1,0 +1,13 @@
+
+apiVersion: tekton.dev/v1alpha1
+kind: TaskRun
+metadata:
+  name: nodejs-taskrun
+spec:
+  inputs:
+    resources:
+      - name: demo-repo
+        resourceRef:
+          name: demo-repo
+  taskRef:
+    name: nodejs-ci
